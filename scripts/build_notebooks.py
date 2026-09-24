@@ -112,6 +112,8 @@ out = Output()
 @nv.on_location_change
 def show_voxel(loc):
     i, j, k = np.round(np.linalg.inv(raw.affine) @ [*loc['mm'][:3], 1])[:3].astype(int)
+    if not (0 <= i < data.shape[0] and 0 <= j < data.shape[1] and 0 <= k < data.shape[2]):
+        return                                               # clicked outside the image
     fig, ax = plt.subplots(figsize=(12, 3))
     ax.plot(t, data[i, j, k], color='steelblue'); ax.set(title=f'voxel ({i}, {j}, {k})', xlabel='time (s)')
     plt.close(fig)
@@ -132,7 +134,7 @@ for i, v in enumerate(volumes):
     ax[0, i].imshow(data[:, :, z, v].T, cmap='gray', origin='lower'); ax[0, i].set_title(f'volume {v}  (t = {v * TR:.0f} s)')
     im = ax[1, i].imshow((psc[:, :, z, v] - psc[:, :, z, 0]).T, cmap='RdBu_r', vmin=-20, vmax=20, origin='lower'); ax[1, i].set_title(f'vol {v} - vol 0  (% change)')
 for a in ax.ravel(): a.axis('off')
-fig.colorbar(im, ax=ax[1, :], label='% signal change', shrink=0.8); plt.show()''',
+fig.colorbar(im, ax=ax.ravel().tolist(), label='% signal change', shrink=0.5, pad=0.02); plt.show()''',
 '''# %% md
 ## 4. Head motion correction
 Every volume is rigidly shifted and rotated to line up with the first one. The estimated movement is saved as 6 numbers per volume.''',
@@ -162,6 +164,12 @@ fig.colorbar(im, ax=ax[:, 2], label='% signal change', shrink=0.6); plt.show()''
 improvement = np.where(brain, data.std(-1) - mc.std(-1), 0)
 x, y, z = np.unravel_index(improvement.argmax(), improvement.shape)   # <-- change: or pick your own x, y, z
 
+def show_voxel_location(x, y, z, ax):
+    ax[0].imshow(mc[:, :, z, 0].T, cmap='gray', origin='lower'); ax[0].plot(x, y, 'r+', ms=18, mew=2); ax[0].set_title(f'axial z={z}'); ax[0].axis('off')
+    ax[1].imshow(mc[x, :, :, 0].T, cmap='gray', origin='lower', aspect=3 / 3.44); ax[1].plot(y, z, 'r+', ms=18, mew=2); ax[1].set_title(f'sagittal x={x}'); ax[1].axis('off')
+
+fig, ax = plt.subplots(1, 2, figsize=(9, 4)); show_voxel_location(x, y, z, ax); plt.tight_layout(); plt.show()
+
 fig, ax = plt.subplots(3, 1, figsize=(13, 8), sharex=True)
 ax[0].plot(t, data[x, y, z], color='firebrick');   ax[0].set_title(f'voxel ({x}, {y}, {z}) BEFORE motion correction')
 ax[1].plot(t, mc[x, y, z], color='seagreen');      ax[1].set_title('AFTER motion correction')
@@ -177,7 +185,12 @@ HIGH_PASS = 0.01     # Hz  <-- change: try 0.005, 0.02, 0.05
 LOW_PASS  = None     # Hz  <-- change: try 0.1 (removes fast noise too)
 
 signal = mc[brain].mean(0)                 # average of all brain voxels = "global signal"
-filtered = clean(signal[:, None], t_r=TR, high_pass=HIGH_PASS, low_pass=LOW_PASS, detrend=False, standardize=False)[:, 0]
+
+def temporal_filter(x):                    # band-pass filter, then put the original mean back so before and after overlay
+    y = clean(x[:, None], t_r=TR, high_pass=HIGH_PASS, low_pass=LOW_PASS, detrend=False, standardize=False)[:, 0]
+    return y - y.mean() + x.mean()
+
+filtered = temporal_filter(signal)
 
 fig, ax = plt.subplots(1, 2, figsize=(16, 4))
 ax[0].plot(t, signal, color='firebrick', label='before'); ax[0].plot(t, filtered, color='seagreen', label='after'); ax[0].legend(); ax[0].set(xlabel='time (s)', title='global mean signal')
@@ -187,12 +200,8 @@ ax[1].axvline(HIGH_PASS, ls='--', color='k'); ax[1].legend(); ax[1].set(xlabel='
 plt.show()''',
 '''x, y, z = 36, 30, 20      # <-- change: a single voxel
 
-def show_voxel_location(x, y, z, ax):
-    ax[0].imshow(mc[:, :, z, 0].T, cmap='gray', origin='lower'); ax[0].plot(x, y, 'r+', ms=18, mew=2); ax[0].set_title(f'axial z={z}'); ax[0].axis('off')
-    ax[1].imshow(mc[x, :, :, 0].T, cmap='gray', origin='lower', aspect=3 / 3.44); ax[1].plot(y, z, 'r+', ms=18, mew=2); ax[1].set_title(f'sagittal x={x}'); ax[1].axis('off')
-
 signal = mc[x, y, z]
-filtered = clean(signal[:, None], t_r=TR, high_pass=HIGH_PASS, low_pass=LOW_PASS, detrend=False, standardize=False)[:, 0]
+filtered = temporal_filter(signal)
 fig, ax = plt.subplots(1, 3, figsize=(17, 4), width_ratios=[1, 1, 3])
 show_voxel_location(x, y, z, ax)
 ax[2].plot(t, signal, color='firebrick', label='before'); ax[2].plot(t, filtered, color='seagreen', label='after')
@@ -242,8 +251,6 @@ plotting.show()''',
 
 d = plotting.plot_anat(mean_raw, cut_coords=CUT, title='BEFORE: native functional image with template outline', cmap='gray'); d.add_edges(mni)
 d = plotting.plot_anat(mean_mni, cut_coords=CUT, title='AFTER: registered functional image with template outline', cmap='gray'); d.add_edges(mni)
-nac_mask = image.math_img('img > 0', img=f'{DATA}/nac_mask_mni.nii.gz')
-plotting.plot_roi(nac_mask, bg_img=mean_mni, cut_coords=CUT, title='nucleus accumbens mask (defined on the template) on the registered functional image')
 plotting.show()''',
 '''# %% md
 ## 8. All steps on one voxel''',
@@ -259,13 +266,13 @@ stim = np.loadtxt(f'{DATA}/stimulus.txt')
 sphere = NiftiSpheresMasker([(X_MNI, Y_MNI, Z_MNI)], radius=0)
 uncorrected_ts = sphere.fit_transform(raw_mni_img)[:, 0]
 raw_ts = sphere.fit_transform(mni_img)[:, 0]
-filt_ts = clean(raw_ts[:, None], t_r=TR, high_pass=0.01, detrend=False, standardize=False)[:, 0]
+filt_ts = temporal_filter(raw_ts)
 smooth_ts = NiftiSpheresMasker([(X_MNI, Y_MNI, Z_MNI)], radius=0).fit_transform(image.smooth_img(mni_img, 6))[:, 0]
-smooth_filt_ts = clean(smooth_ts[:, None], t_r=TR, high_pass=0.01, detrend=False, standardize=False)[:, 0]
+smooth_filt_ts = temporal_filter(smooth_ts)
 
 fig, ax = plt.subplots(5, 1, figsize=(13, 13), sharex=True)
-ax[0].plot(t, uncorrected_ts, color='k');     ax[0].set_title('raw (registered only, no motion correction)')
-ax[1].plot(t, raw_ts, color='gray');          ax[1].set_title('motion corrected')
+ax[0].plot(t, uncorrected_ts, color='firebrick');  ax[0].set_title('raw (registered only, no motion correction)')
+ax[1].plot(t, raw_ts, color='darkorange');         ax[1].set_title('motion corrected')
 ax[2].plot(t, filt_ts, color='steelblue');    ax[2].set_title('+ high-pass filtered')
 ax[3].plot(t, smooth_filt_ts, color='seagreen'); ax[3].set_title('+ smoothed (6 mm)')
 ax[4].plot(t, stim, color='firebrick');       ax[4].set_title('heat stimulus (C)'); ax[4].set_xlabel('time (s)')
@@ -274,7 +281,7 @@ plt.tight_layout(); plt.show()''',
 from ipywidgets import Checkbox, HBox, interactive_output
 
 traces = {'raw': uncorrected_ts, 'motion corrected': raw_ts, 'high-pass filtered': filt_ts, 'smoothed': smooth_filt_ts}
-colors = {'raw': 'k', 'motion corrected': 'gray', 'high-pass filtered': 'steelblue', 'smoothed': 'seagreen'}
+colors = {'raw': 'firebrick', 'motion corrected': 'darkorange', 'high-pass filtered': 'steelblue', 'smoothed': 'seagreen'}
 boxes = {name: Checkbox(value=(name in ['raw', 'smoothed']), description=name) for name in traces}
 boxes['heat stimulus'] = Checkbox(value=True, description='heat stimulus')
 
@@ -282,10 +289,10 @@ def overlay(**show):
     fig, ax = plt.subplots(figsize=(14, 5))
     for name, ts in traces.items():
         if show[name]:
-            ax.plot(t, 100 * (ts - ts.mean()) / ts.mean(), color=colors[name], alpha=0.6, label=name)
+            ax.plot(t, 100 * (ts - ts.mean()) / raw_ts.mean(), color=colors[name], alpha=0.6, label=name)   # all relative to the same baseline
     ax.set(xlabel='time (s)', ylabel='% signal change', title=f'MNI ({X_MNI}, {Y_MNI}, {Z_MNI})'); ax.legend(loc='upper left')
     if show['heat stimulus']:
-        ax2 = ax.twinx(); ax2.plot(t, stim, color='firebrick', alpha=0.3, lw=3); ax2.set_ylabel('temperature (C)', color='firebrick')
+        ax2 = ax.twinx(); ax2.plot(t, stim, color='k', alpha=0.25, lw=3); ax2.set_ylabel('temperature (C)')
     plt.show()
 
 display(HBox(list(boxes.values())), interactive_output(overlay, boxes))''',
