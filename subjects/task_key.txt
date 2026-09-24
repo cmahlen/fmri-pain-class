@@ -1,0 +1,2 @@
+task001	thermal stimulus rating task
+task002 thermal stimulus rating task

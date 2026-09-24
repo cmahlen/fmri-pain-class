@@ -1,0 +1,17 @@
+Patient,Gender,Age (years),Duration (years),Radicular component,VAS (0-100),Affective score,Sensory score,BAI,BDI
+cbp01,F,35,--,--,66,--,--,--,--
+cbp02,M,32,6,No,71,2,12,6,8
+cbp03,M,35,5,--,45,--,--,--,--
+cbp04,F,56,9,Yes,55,6,8,10,2
+cbp05,M,49,1,Yes,45,4,8,13,9
+cbp06,M,58,5,Yes,41,3,6,11,16
+cbp07,F,29,3,Yes,66,5,10,12,8
+cbp08,F,41,6,No,21,4,4,16,11
+cbp09,F,61,10,Yes,58,4,16,4,14
+cbp10,F,32,9,Yes,79,0,5,8,7
+cbp11,M,32,6,Yes,91,4,8,7,12
+cbp12,F,43,12,Yes,47,4,13,7,18
+cbp13,M,48,30,No,87,5,8,4,5
+cbp14,M,68,10,Yes,38,2,14,18,9
+cbp15,M,51,4,Yes,55,6,9,16,8
+cbp16,F,51,2,Yes,52,2,15,12,14

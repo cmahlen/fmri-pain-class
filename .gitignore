@@ -1,0 +1,14 @@
+# raw data, FSL outputs and Drive bundles are too large for git (see README for where they live)
+data/
+derivatives/*/
+drive_upload/
+*.nii.gz
+!subjects/accumbens_subdivionsLR.nii.gz
+# lecture slides are shared separately
+*.pptx
+# local clutter
+.ipynb_checkpoints/
+__pycache__/
+.DS_Store
+nohup.out
+.virtual_documents/
