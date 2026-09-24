@@ -8,7 +8,7 @@ os.makedirs(OUT, exist_ok=True)
 
 SETUP = '''#@title Setup: install packages and download the data (run this first, takes about a minute)
 import os, sys
-SUBJECT = 'SUBJECT_PLACEHOLDER'      # <-- change: 'cbp001', 'cbp006' (chronic back pain) or 'healthy007'
+SUBJECT = 'SUBJECT_PLACEHOLDER'      # <-- change: 'cbp001', 'cbp006', 'cbp014' (chronic back pain) or 'healthy007'
 
 DATA_URL = 'https://github.com/cmahlen/fmri-pain-class/releases/download/data-v1'   # one ~160 MB tarball per subject, one 10-minute run each
 
@@ -591,7 +591,7 @@ plotting.show()''',
 ]
 
 build('01_preprocessing.ipynb', pre, 'cbp001')    # large head motion: best for the motion-correction demo
-build('02_glm.ipynb', glm, 'cbp006')              # strongest pain map of all 23 screened subjects and the paper's CBP NAc pattern (run 2)
+build('02_glm.ipynb', glm, 'cbp014')              # strong pain map, highest NAc correlation with d(stim)/dt (run 1)
 build('03_connectivity.ipynb', fc, 'cbp006')
-for name, cells, sub in [('01_preprocessing.ipynb', pre, 'cbp001'), ('02_glm.ipynb', glm, 'cbp006'), ('03_connectivity.ipynb', fc, 'cbp006')]:
+for name, cells, sub in [('01_preprocessing.ipynb', pre, 'cbp001'), ('02_glm.ipynb', glm, 'cbp014'), ('03_connectivity.ipynb', fc, 'cbp006')]:
     build(name, cells, sub, local=True)      # notebooks/local/: same notebooks reading from drive_upload/ on this machine
