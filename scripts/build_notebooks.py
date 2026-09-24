@@ -104,14 +104,16 @@ from ipyniivue import NiiVue, SliceType
 from ipywidgets import Output
 from IPython.display import display, clear_output
 
-image.mean_img(raw).to_filename('mean_raw.nii.gz')
+viewer_img = image.mean_img(raw)
+viewer_img.set_sform(raw.affine, code=1); viewer_img.set_qform(raw.affine, code=1)   # raw file has no stored orientation; write one so the viewer and numpy agree
+viewer_img.to_filename('mean_raw.nii.gz')
 nv = NiiVue(slice_type=SliceType.MULTIPLANAR, height=420)
 nv.load_volumes([{'path': 'mean_raw.nii.gz', 'colormap': 'gray'}])
 out = Output()
 
 @nv.on_location_change
 def show_voxel(loc):
-    i, j, k = np.round(np.linalg.inv(raw.affine) @ [*loc['mm'][:3], 1])[:3].astype(int)
+    i, j, k = np.round(np.linalg.inv(viewer_img.affine) @ [*loc['mm'][:3], 1])[:3].astype(int)
     if not (0 <= i < data.shape[0] and 0 <= j < data.shape[1] and 0 <= k < data.shape[2]):
         return                                               # clicked outside the image
     fig, ax = plt.subplots(figsize=(12, 3))
@@ -192,8 +194,10 @@ def temporal_filter(x):                    # band-pass filter, then put the orig
 
 filtered = temporal_filter(signal)
 
+trend = np.polyval(np.polyfit(t, signal, 1), t)      # straight line fitted to the "before" signal: the slow drift
+
 fig, ax = plt.subplots(1, 2, figsize=(16, 4))
-ax[0].plot(t, signal, color='firebrick', label='before'); ax[0].plot(t, filtered, color='seagreen', label='after'); ax[0].legend(); ax[0].set(xlabel='time (s)', title='global mean signal')
+ax[0].plot(t, signal, color='firebrick', label='before'); ax[0].plot(t, trend, 'k--', lw=2, label='linear trend of before'); ax[0].plot(t, filtered, color='seagreen', label='after'); ax[0].legend(); ax[0].set(xlabel='time (s)', title='global mean signal')
 for s, c, l in [(signal, 'firebrick', 'before'), (filtered, 'seagreen', 'after')]:
     f, p = welch(s - s.mean(), fs=1 / TR, nperseg=120); ax[1].semilogy(f, p, color=c, label=l)
 ax[1].axvline(HIGH_PASS, ls='--', color='k'); ax[1].legend(); ax[1].set(xlabel='frequency (Hz)', ylabel='power', title='power spectrum')
@@ -204,7 +208,8 @@ signal = mc[x, y, z]
 filtered = temporal_filter(signal)
 fig, ax = plt.subplots(1, 3, figsize=(17, 4), width_ratios=[1, 1, 3])
 show_voxel_location(x, y, z, ax)
-ax[2].plot(t, signal, color='firebrick', label='before'); ax[2].plot(t, filtered, color='seagreen', label='after')
+trend = np.polyval(np.polyfit(t, signal, 1), t)
+ax[2].plot(t, signal, color='firebrick', label='before'); ax[2].plot(t, trend, 'k--', lw=2, label='linear trend of before'); ax[2].plot(t, filtered, color='seagreen', label='after')
 ax[2].legend(); ax[2].set(xlabel='time (s)', title=f'voxel ({x}, {y}, {z})')
 plt.tight_layout(); plt.show()''',
 '''# %% md
