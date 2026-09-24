@@ -1,0 +1,5 @@
+This work is covered by the Open Data Commons Public Domain Dedication and 
+License, a copy of which is included alongside this file as 
+open_data_commons_pdd_license.pdf.  The "work" is understood to mean the 
+thermal pain dataset and files pertaining to this dataset which are found 
+in this folder together with this file.
