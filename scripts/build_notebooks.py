@@ -8,16 +8,21 @@ os.makedirs(OUT, exist_ok=True)
 
 SETUP = '''#@title Setup: install packages and download the data (run this first, takes about a minute)
 import os, sys
-DRIVE_FOLDER = "PASTE_GOOGLE_DRIVE_FOLDER_LINK_HERE"   # shared folder link from Google Drive
 SUBJECT = 'SUBJECT_PLACEHOLDER'      # <-- change: 'cbp001', 'cbp006' (chronic back pain) or 'healthy007'
+
+DRIVE_FOLDERS = {                    # one shared Google Drive folder per subject (each holds one 10-minute run)
+    'cbp001': '10x0i_27x8cml7rVoQ9JNFrIxMm8T9gdc', 'cbp002': '1JP4tO-cg3CDREIIjDolyy1U0qhOKnJJ_', 'cbp003': '1IXBkI7P7yZ50Z38c5Kfg54uApIv12F5y',
+    'cbp006': '19-I4KodmUlsUFrrnQmaK7C5UPBM_d-d4', 'cbp014': '1l48f17kf0nzFu5mH6MJZ46eqajJP_3UJ',
+    'healthy001': '1BLuc3TPFzP6sziY9-c6npeYv5n7ct48g', 'healthy003': '1u5qB-WXYzofhmn807ypm8DXZyEuIHxB3', 'healthy004': '18W0jyvHSa2-h1JkrbOvXlahF5fQPZA_c',
+    'healthy007': '1WI1QMf0vj2163cKWasGQLiSDf-x4wl7m', 'healthy012': '1zqO35e9Cxi0gddl7n6IEPIrI1qQVGaDG'}
 
 IN_COLAB = 'google.colab' in sys.modules
 if IN_COLAB:
-    get_ipython().system('pip install -q nilearn gdown ipyniivue')
-    from google.colab import output; output.enable_custom_widget_manager()   # lets the clickable brain viewer render in Colab
-    if not os.path.exists('data'):
-        get_ipython().system(f'gdown --folder "{DRIVE_FOLDER}" -O data -q')
+    get_ipython().system('pip install -q --no-deps nilearn ipyniivue anywidget psygnal')   # only what Colab lacks; --no-deps keeps Colab's pandas/requests
+    from google.colab import output; output.enable_custom_widget_manager()               # lets the clickable brain viewer render in Colab
     DATA = f'data/{SUBJECT}'
+    if not os.path.exists(DATA):
+        get_ipython().system(f'gdown --folder https://drive.google.com/drive/folders/{DRIVE_FOLDERS[SUBJECT]} -O {DATA} -q')
 else:
     DATA = os.path.join(os.environ.get('FMRI_DATA', 'drive_upload'), SUBJECT)
 
