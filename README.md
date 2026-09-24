@@ -21,7 +21,7 @@ Students need no Python. Every line they should touch is marked `# <-- change`.
 
 ```bash
 scripts/preprocess_fsl.sh              # FSL: motion correction, brain extraction, EPI -> T1 -> MNI (all 6 subjects, ~15 min)
-scripts/make_bundle.sh cbp006 task001_run002   # build drive_upload/cbp006 from that run (default run001) (3 mm MNI bold as int16, raw, motion corrected, T1, mask, stimulus, rating)
+scripts/make_bundle.sh cbp006 task001_run002   # build drive_upload/cbp006 from that run (default run001); tar it and upload to the data-v1 release (3 mm MNI bold as int16, raw, motion corrected, T1, mask, stimulus, rating)
 python3 scripts/screen_subjects.py     # per-subject motion and NAc / insula response summary -> derivatives/screening.csv
 python3 scripts/build_notebooks.py     # regenerate notebooks/*.ipynb from the cell sources
 FMRI_DATA=drive_upload/cbp001 jupyter nbconvert --execute --to notebook notebooks/01_preprocessing.ipynb --output ../scratch.ipynb   # local test

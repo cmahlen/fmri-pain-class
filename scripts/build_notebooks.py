@@ -10,11 +10,7 @@ SETUP = '''#@title Setup: install packages and download the data (run this first
 import os, sys
 SUBJECT = 'SUBJECT_PLACEHOLDER'      # <-- change: 'cbp001', 'cbp006' (chronic back pain) or 'healthy007'
 
-DRIVE_FOLDERS = {                    # one shared Google Drive folder per subject (each holds one 10-minute run)
-    'cbp001': '10x0i_27x8cml7rVoQ9JNFrIxMm8T9gdc', 'cbp002': '1JP4tO-cg3CDREIIjDolyy1U0qhOKnJJ_', 'cbp003': '1IXBkI7P7yZ50Z38c5Kfg54uApIv12F5y',
-    'cbp006': '19-I4KodmUlsUFrrnQmaK7C5UPBM_d-d4', 'cbp014': '1l48f17kf0nzFu5mH6MJZ46eqajJP_3UJ',
-    'healthy001': '1BLuc3TPFzP6sziY9-c6npeYv5n7ct48g', 'healthy003': '1u5qB-WXYzofhmn807ypm8DXZyEuIHxB3', 'healthy004': '18W0jyvHSa2-h1JkrbOvXlahF5fQPZA_c',
-    'healthy007': '1WI1QMf0vj2163cKWasGQLiSDf-x4wl7m', 'healthy012': '1zqO35e9Cxi0gddl7n6IEPIrI1qQVGaDG'}
+DATA_URL = 'https://github.com/cmahlen/fmri-pain-class/releases/download/data-v1'   # one ~160 MB tarball per subject, one 10-minute run each
 
 IN_COLAB = 'google.colab' in sys.modules
 if IN_COLAB:
@@ -22,7 +18,8 @@ if IN_COLAB:
     from google.colab import output; output.enable_custom_widget_manager()               # lets the clickable brain viewer render in Colab
     DATA = f'data/{SUBJECT}'
     if not os.path.exists(DATA):
-        get_ipython().system(f'gdown --folder https://drive.google.com/drive/folders/{DRIVE_FOLDERS[SUBJECT]} -O {DATA} -q')
+        os.makedirs('data', exist_ok=True)
+        get_ipython().system(f'curl -sL {DATA_URL}/{SUBJECT}.tar.gz | tar xz -C data')
 else:
     DATA = os.path.join(os.environ.get('FMRI_DATA', 'drive_upload'), SUBJECT)
 
