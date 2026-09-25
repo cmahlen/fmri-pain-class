@@ -76,6 +76,8 @@ pre = [
 '''# %% md
 # Interactive 1: What does fMRI preprocessing do to the data?
 
+FIRST: GO TO FILE > SAVE A COPY TO DRIVE to make sure that you don't lose your progress. 
+
 One subject, one 10-minute run, painful heat applied to the lower back (Baliki et al., 2010, *Neuron*).
 
 Each section shows the data **before** and **after** one preprocessing step. Run the cells in order (later cells use things defined earlier). Lines marked `# <-- change` are the ones to play with.''',
