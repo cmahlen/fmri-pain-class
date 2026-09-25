@@ -1,6 +1,6 @@
 # fMRI crash course: interactive notebooks
 
-Three Google Colab notebooks that follow the lecture (`fMRI_course_partI.pptx`). One subject, one 10-minute run
+Three Google Colab notebooks that follow the lecture (`fMRI_course_partI.pptx`). One subject at a time, one 10-minute run
 of painful heat to the lower back, from Baliki et al. 2010, *Neuron*, downloaded from the OpenPain repository (openpain.org, PDDL licence).
 
 | Notebook | Lecture section | Live in Colab | Precomputed locally (FSL) |
@@ -13,7 +13,7 @@ Students need no Python. Every line they should touch is marked `# <-- change`.
 
 ## Setup
 
-Students can open the notebooks with the Colab badge links above (they load straight from this GitHub repo). The setup cell installs nilearn and downloads ~110 MB.
+Students can open the notebooks with the Colab badge links above (they load straight from this GitHub repo). The setup cell installs nilearn and downloads one subject (~160 MB) from the `data-v1` release.
 
 ## Rebuilding (not needed for students)
 

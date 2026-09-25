@@ -35,7 +35,7 @@ print('files:', sorted(os.listdir(DATA)))'''
 
 LOCAL_SETUP = '''# Local version: reads the data straight from ../../drive_upload/<SUBJECT>/ (no Google Drive download)
 import os, sys
-SUBJECT = 'SUBJECT_PLACEHOLDER'      # <-- change: any folder name in drive_upload/
+SUBJECT = 'SUBJECT_PLACEHOLDER'      # <-- change: 'cbp001', 'cbp006', 'cbp014' (chronic back pain) or 'healthy007'
 IN_COLAB = False
 DATA = os.path.join(os.path.dirname(os.path.abspath('__file__')), '..', '..', 'drive_upload', SUBJECT)
 
@@ -78,7 +78,7 @@ pre = [
 
 One subject, one 10-minute run, painful heat applied to the lower back (Baliki et al., 2010, *Neuron*).
 
-Each section shows the data **before** and **after** one preprocessing step. Lines marked `# <-- change` are the ones to play with.''',
+Each section shows the data **before** and **after** one preprocessing step. Run the cells in order (later cells use things defined earlier). Lines marked `# <-- change` are the ones to play with.''',
 SETUP,
 '''# %% md
 ## 1. The raw data: a stack of 3D pictures taken every 2.5 seconds''',
@@ -150,7 +150,7 @@ plt.show()
 worst = np.abs(motion - motion[0]).sum(1).argmax()
 print('volume that moved the most relative to volume 0:', worst, f'(t = {worst * TR:.0f} s)')''',
 '''mc = nib.load(f'{DATA}/bold_mc.nii.gz').get_fdata()   # the same run after motion correction
-v = worst                                            # <-- change: any volume number
+v = worst                                            # <-- change: any volume number from 0 to 239
 
 before_diff = np.abs(data[..., v] - data[..., 0]).sum((0, 1)); after_diff = np.abs(mc[..., v] - mc[..., 0]).sum((0, 1))
 zbest = 5 + (before_diff - after_diff)[5:30].argmax()                     # slice where motion correction helped the most
@@ -310,7 +310,7 @@ glm = [
 '''# %% md
 # Interactive 2: Finding pain in the brain with the general linear model
 
-Same subject, same run. Now we ask: *which voxels go up and down with the heat stimulus?*''',
+Same subject, same run. Now we ask: *which voxels go up and down with the heat stimulus?* Run the cells in order; lines marked `# <-- change` are the ones to play with.''',
 SETUP,
 '''# %% md
 ## 1. What happened during the scan''',
@@ -327,11 +327,12 @@ plt.show()''',
 ## 2. From stimulus to expected BOLD signal: the hemodynamic response function''',
 '''from nilearn.glm.first_level.hemodynamic_models import spm_hrf
 
-STIM_THRESHOLD = 42      # C  <-- change: temperature above which we call it "stimulus on"
+STIM_THRESHOLD = 42      # C  <-- change: temperature above which we call it "stimulus on" (baseline is 40 C, peaks 48-53 C; try 45 or 48)
 
 hrf_fine = spm_hrf(0.1, oversampling=1, time_length=30)
 hrf = spm_hrf(TR, oversampling=1, time_length=30)
 boxcar = (stim > STIM_THRESHOLD).astype(float)
+assert boxcar.sum() > 0, f'no volume is above {STIM_THRESHOLD} C; the hottest is {stim.max():.1f} C, lower STIM_THRESHOLD'
 expected = np.convolve(boxcar, hrf)[:240]
 
 fig, ax = plt.subplots(3, 1, figsize=(13, 8))
@@ -344,7 +345,7 @@ plt.tight_layout(); plt.show()''',
 '''from nilearn.maskers import NiftiSpheresMasker
 from nilearn.glm.first_level import make_first_level_design_matrix
 
-COORDS = (40, 8, -2)      # <-- change: MNI coordinate. (40, 8, -2) right insula; (16, 10, -8) right accumbens; (-38, -22, 56) left motor cortex
+COORDS = (40, 8, -2)      # <-- change: MNI coordinate (x -60..60, y -90..60, z -40..70). (40, 8, -2) right insula; (16, 10, -8) right accumbens; (-38, -22, 56) left motor cortex
 
 def design(regressors, high_pass=0.01):
     return make_first_level_design_matrix(t, add_regs=pd.DataFrame(regressors, index=t), drift_model='cosine', high_pass=high_pass)
@@ -406,12 +407,16 @@ zmap_data = zmap.get_fdata()
 @nv.on_location_change
 def show_fit(loc):
     i, j, k = np.round(np.linalg.inv(bold.affine) @ [*loc['mm'][:3], 1])[:3].astype(int)
-    zi, zj, zk = np.round(np.linalg.inv(zmap.affine) @ [*loc['mm'][:3], 1])[:3].astype(int)
-    y = bold_smooth[i, j, k]; y = 100 * (y - y.mean()) / y.mean()
+    if not (0 <= i < bold_smooth.shape[0] and 0 <= j < bold_smooth.shape[1] and 0 <= k < bold_smooth.shape[2]):
+        return                                               # clicked outside the image
+    y = bold_smooth[i, j, k]
+    if y.mean() == 0:
+        return                                               # clicked outside the brain
+    y = 100 * (y - y.mean()) / y.mean()
     b = np.linalg.lstsq(dm.values, y, rcond=None)[0]
     fig, ax = plt.subplots(figsize=(12, 3))
     ax.plot(t, y, color='gray', label='measured'); ax.plot(t, dm.values @ b, color='purple', lw=2, label='GLM fit')
-    ax.set(title=f'MNI {tuple(np.round(loc["mm"][:3]).astype(int))}    z = {zmap_data[zi, zj, zk]:.2f}', xlabel='time (s)'); ax.legend(loc='upper right')
+    ax.set(title=f'MNI {tuple(np.round(loc["mm"][:3]).astype(int))}    z = {zmap_data[i, j, k]:.2f}', xlabel='time (s)'); ax.legend(loc='upper right')
     plt.close(fig)
     with out:
         clear_output(wait=True); display(fig)
@@ -460,7 +465,7 @@ ax[1].plot(t, deriv, color='firebrick');  ax[1].set_title(f'd stim/dt convolved 
 ax[2].plot(t, rect, color='seagreen');    ax[2].set_title(f'|d stim/dt| convolved with HRF     correlation with NAc = {np.corrcoef(nac, rect)[0, 1]:.2f}'); ax[2].set_xlabel('time (s)')
 plt.tight_layout(); plt.show()''',
 '''# Average the accumbens signal around every stimulus onset and every stimulus offset
-WINDOW = (-10, 30)       # seconds  <-- change
+WINDOW = (-10, 30)       # seconds before and after the event  <-- change (keep the first number smaller than the second)
 
 onsets  = np.where(np.diff(boxcar) == 1)[0] + 1
 offsets = np.where(np.diff(boxcar) == -1)[0] + 1
@@ -472,6 +477,8 @@ def locked(events, series):
 fig, ax = plt.subplots(1, 2, figsize=(14, 4), sharey=True)
 for a, ev, name in [(ax[0], onsets, 'stimulus ONSET'), (ax[1], offsets, 'stimulus OFFSET')]:
     seg = locked(ev, nac)
+    if len(seg) == 0:
+        a.set_title(f'no complete {name} window in this run'); continue
     a.plot(lags * TR, seg.T, color='lightgray')
     a.plot(lags * TR, seg.mean(0), color='k', lw=3, label=f'mean of {len(seg)} events')
     a.axvline(0, ls='--', color='firebrick'); a.axhline(0, color='gray', lw=0.5); a.legend(); a.set(title=f'NAc around {name}', xlabel='seconds from event')
@@ -485,7 +492,7 @@ fc = [
 '''# %% md
 # Interactive 3: Functional connectivity
 
-Same subject, same run. Now we ignore the task and ask: *which parts of the brain rise and fall together?*''',
+Same subject, same run. Now we ignore the task and ask: *which parts of the brain rise and fall together?* Run the cells in order; lines marked `# <-- change` are the ones to play with.''',
 SETUP,
 '''# %% md
 ## 1. Prepare the data: band-pass filter, remove head motion, z-score every voxel''',
@@ -495,7 +502,7 @@ bold = nib.load(f'{DATA}/bold_mni.nii.gz')
 motion = np.loadtxt(f'{DATA}/motion_params.txt')
 stim = np.loadtxt(f'{DATA}/stimulus.txt')
 
-HIGH_PASS, LOW_PASS = 0.009, 0.08      # Hz  <-- change
+HIGH_PASS, LOW_PASS = 0.009, 0.08      # Hz  <-- change: keep HIGH_PASS < LOW_PASS < 0.2
 SMOOTHING = 6                          # mm  <-- change
 REMOVE_GLOBAL_SIGNAL = True            # <-- change: also regress out the average signal of the whole brain
 
@@ -508,7 +515,7 @@ X = masker.transform(clean)            # matrix: 240 time points x all brain vox
 print('time points x voxels:', X.shape)''',
 '''# %% md
 ## 2. Seed-based connectivity: correlate one region with every voxel''',
-'''SEED = (16, 10, -8)      # MNI  <-- change: (16, 10, -8) right accumbens; (0, 52, -14) medial prefrontal; (40, 8, -2) right insula; (-38, -22, 56) left motor cortex
+'''SEED = (16, 10, -8)      # MNI (x -60..60, y -90..60, z -40..70)  <-- change: (16, 10, -8) right accumbens; (0, 52, -14) medial prefrontal; (40, 8, -2) right insula; (-38, -22, 56) left motor cortex
 RADIUS = 5               # mm
 R_THRESHOLD = 0.4        # <-- change
 
@@ -523,24 +530,24 @@ plotting.plot_glass_brain(r_img, threshold=R_THRESHOLD, colorbar=True, plot_abs=
 plotting.show()''',
 '''# What a correlation of 0.7, 0.0 and -0.4 look like: the seed (black) against one voxel (colored) at each strength
 TARGET_R = [0.7, 0.0, -0.4]                            # <-- change
-target_colors = ['seagreen', 'orange', 'royalblue']
+target_colors = ['seagreen', 'orange', 'royalblue', 'purple', 'brown', 'gray'][:len(TARGET_R)]
 
 voxel_ijk = np.argwhere(brain_mask.get_fdata() > 0)   # voxel indices, same order as the columns of X
 targets = []
 for target_r, color in zip(TARGET_R, target_colors):
     j = np.abs(r - target_r).argmin()
     xyz = tuple(np.round(image.coord_transform(*voxel_ijk[j], brain_mask.affine)).astype(int))
-    targets.append((j, xyz, color))
+    targets.append((j, xyz, color, target_r))
 
 d = plotting.plot_glass_brain(None, display_mode='lyrz', title='seed (black) and the three example voxels')
 d.add_markers([SEED], marker_color='k', marker_size=120)
-for j, xyz, color in targets:
+for j, xyz, color, target_r in targets:
     d.add_markers([xyz], marker_color=color, marker_size=120)
 plotting.show()
 
-for j, xyz, color in targets:
+for j, xyz, color, target_r in targets:
     plt.figure(figsize=(13, 2.5)); plt.plot(t, seed, color='k', label='seed'); plt.plot(t, X[:, j], color=color, label=f'voxel at MNI {xyz}')
-    plt.title(f'r = {r[j]:.2f}'); plt.legend(loc='upper right'); plt.show()''',
+    plt.title(f'asked for r = {target_r}, closest voxel has r = {r[j]:.2f}'); plt.legend(loc='upper right'); plt.show()''',
 '''# %% md
 ## 3. A correlation matrix between regions''',
 '''ROIS = {                       # <-- change: add or remove regions (name: MNI coordinate)
@@ -552,6 +559,7 @@ for j, xyz, color in targets:
     'PCC': (0, -52, 26),     'motor L': (-38, -22, 56),
 }
 roi_ts = NiftiSpheresMasker(list(ROIS.values()), radius=RADIUS).fit_transform(clean)
+assert len(ROIS) >= 2, 'keep at least two regions'
 corr = np.corrcoef(roi_ts.T)
 
 fig, ax = plt.subplots(figsize=(8, 7))
@@ -559,8 +567,11 @@ im = ax.imshow(corr, cmap='RdBu_r', vmin=-1, vmax=1)
 ax.set_xticks(range(len(ROIS))); ax.set_xticklabels(ROIS, rotation=90); ax.set_yticks(range(len(ROIS))); ax.set_yticklabels(ROIS)
 plt.colorbar(im, label='correlation'); plt.show()
 
-plotting.plot_connectome(corr, list(ROIS.values()), edge_threshold=0.4, node_size=60, title='edges with |r| > 0.4')
-plotting.show()''',
+if (np.abs(corr[np.triu_indices(len(ROIS), 1)]) > 0.4).any():
+    plotting.plot_connectome(corr, list(ROIS.values()), edge_threshold=0.4, node_size=60, title='edges with |r| > 0.4')
+    plotting.show()
+else:
+    print('no pair of regions has |r| > 0.4, so there is nothing to draw')''',
 '''# %% md
 ## 4. Degree: how many strong connections does each voxel have?''',
 '''DEGREE_THRESHOLD = 0.7     # <-- change: r above which we call two voxels "connected"
