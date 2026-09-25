@@ -138,6 +138,8 @@ for i, v in enumerate(volumes):
 for a in ax.ravel(): a.axis('off')
 fig.colorbar(im, ax=ax.ravel().tolist(), label='% signal change', shrink=0.5, pad=0.02); plt.show()''',
 '''# %% md
+NOTE: physiologically plausible % signal change ranges from 0 - 5%. We are seeing much larger changes here, which should set off alarm bells that this is likely motion, drift or some other nuisance effects.''',
+'''# %% md
 ## 4. Head motion correction
 Every volume is rigidly shifted and rotated to line up with the first one. The estimated movement is saved as 6 numbers per volume.''',
 '''motion = np.loadtxt(f'{DATA}/motion_params.txt')      # columns: 3 rotations (radians), 3 translations (mm)
@@ -162,8 +164,10 @@ for row, (label, d) in enumerate([('BEFORE motion correction', data), ('AFTER mo
     im = ax[row, 2].imshow(diff[32, :, :].T, cmap='RdBu_r', vmin=-20, vmax=20, origin='lower', aspect=3 / 3.44); ax[row, 2].set_title('same difference, sagittal view')
 for a in ax.ravel(): a.axis('off')
 fig.colorbar(im, ax=ax[:, 2], label='% signal change', shrink=0.6); plt.show()''',
+'''# %% md
+Compare the top picture with the bottom picture. Lots of the change has been removed: bottom picture is less colorful than the top picture.''',
 '''# A voxel at the edge of the brain: motion pretends to be brain activity
-improvement = np.where(brain, data.std(-1) - mc.std(-1), 0)
+improvement = np.where(brain, data.std(-1) - mc.std(-1), 0) # Voxel whose SD decreased the most by motion correction
 x, y, z = np.unravel_index(improvement.argmax(), improvement.shape)   # <-- change: or pick your own x, y, z
 
 def show_voxel_location(x, y, z, ax):
@@ -301,6 +305,8 @@ def overlay(**show):
     plt.show()
 
 display(HBox(list(boxes.values())), interactive_output(overlay, boxes))''',
+'''# %% md
+There is improvement, but the timeseries still looks pretty messy. How do we find out whether the heat stimulus and the voxelwise time series are actually related? We will find out on the next demo after Paul teaches us about the general linear model (GLM).''',
 ]
 
 # =====================================================================
@@ -368,7 +374,7 @@ ax[1].plot(t, resid, color='gray'); ax[1].set_title('residual (what the model do
 plt.tight_layout(); plt.show()''',
 '''# %% md
 ## 4. The design matrix: the same model, written as columns''',
-'''INCLUDE_MOTION = False      # <-- change: add the 6 head-motion parameters as nuisance regressors
+'''INCLUDE_MOTION = False      # <-- change to `True`: add the 6 head-motion parameters as nuisance regressors
 
 regs = {'pain': expected}
 if INCLUDE_MOTION:
@@ -439,6 +445,8 @@ for label, kw in [('uncorrected p < 0.05', dict(alpha=0.05, height_control='fpr'
     plotting.plot_glass_brain(thr_map, colorbar=True, plot_abs=False, display_mode='lyrz', title=f'{label}  (z > {thr:.2f})')
 plotting.show()''',
 '''# %% md
+Note how the number of significant voxels changes with the threshold. Bonferroni is the most stringent (often *too* stringent for neuroimaging) and has the least, whereas uncorrected $p<.05$ is the least stringent.''',
+'''# %% md
 ## 7. Two models of the same data: stimulus temperature vs perceived pain''',
 '''rating_expected = np.convolve(rating - rating.min(), hrf)[:240]
 
@@ -446,6 +454,8 @@ for name, reg in [('stimulus', expected), ('rating', rating_expected)]:
     m = FirstLevelModel(t_r=TR, smoothing_fwhm=SMOOTHING).fit(bold, design_matrices=design({name: reg}))
     plotting.plot_stat_map(m.compute_contrast(name), threshold=THRESHOLD, cut_coords=COORDS, title=f'model: {name}')
 plotting.show()''',
+'''# %% md
+For this particular subject, speculate on why their "rating" model might be so much weaker than the "stimulus" model. Give one statistical reason and one neurophysiological reason, and think about which one you think is more likely. (There is no correct answer here)''',
 '''# %% md
 ## 8. The nucleus accumbens: responding to change, not to heat
 Baliki et al. found the accumbens responds when the stimulus *starts* and when it *ends*. In healthy subjects both responses are positive (BOLD follows |d stim/dt|). In chronic back pain the offset response flips sign (BOLD follows d stim/dt).''',
@@ -483,6 +493,8 @@ for a, ev, name in [(ax[0], onsets, 'stimulus ONSET'), (ax[1], offsets, 'stimulu
     a.plot(lags * TR, seg.mean(0), color='k', lw=3, label=f'mean of {len(seg)} events')
     a.axvline(0, ls='--', color='firebrick'); a.axhline(0, color='gray', lw=0.5); a.legend(); a.set(title=f'NAc around {name}', xlabel='seconds from event')
 plt.show()''',
+'''# %% md
+Note that this window-averaging approach is not strictly part of the typical GLM, which reduces the BOLD signal to a single summary statistic $\\beta$.''',
 ]
 
 # =====================================================================
@@ -505,6 +517,7 @@ stim = np.loadtxt(f'{DATA}/stimulus.txt')
 HIGH_PASS, LOW_PASS = 0.009, 0.08      # Hz  <-- change: keep HIGH_PASS < LOW_PASS < 0.2
 SMOOTHING = 6                          # mm  <-- change
 REMOVE_GLOBAL_SIGNAL = True            # <-- change: also regress out the average signal of the whole brain
+                                        # Global signal regression is controversial. You can read more at Murphy & Fox 2016, Neuroimage
 
 brain_mask = masking.compute_epi_mask(bold)
 global_signal = masking.apply_mask(bold, brain_mask).mean(1)
@@ -573,6 +586,8 @@ if (np.abs(corr[np.triu_indices(len(ROIS), 1)]) > 0.4).any():
 else:
     print('no pair of regions has |r| > 0.4, so there is nothing to draw')''',
 '''# %% md
+This is a custom correlation matrix selected from regions that are known to be involved in pain. However, you can also take a data driven approach by using pre-made parcellations such as the Schaefer or Harvard-Oxford parcellations, or even make your own ICA-based parcellation. You can try some of these out at https://nilearn.github.io/stable/index.html''',
+'''# %% md
 ## 4. Degree: how many strong connections does each voxel have?''',
 '''DEGREE_THRESHOLD = 0.7     # <-- change: r above which we call two voxels "connected"
 
@@ -599,6 +614,8 @@ seed_map(image.clean_img(bold, t_r=TR, high_pass=HIGH_PASS, low_pass=LOW_PASS, d
 seed_map(image.clean_img(bold, t_r=TR, confounds=motion, high_pass=HIGH_PASS, low_pass=LOW_PASS, detrend=True, mask_img=brain_mask), 'filtered + motion regressed')
 seed_map(clean, 'filtered + motion regressed' + (' + global signal regressed' if REMOVE_GLOBAL_SIGNAL else '') + ' + smoothed')
 plotting.show()''',
+'''# %% md
+Now that you are an expert, there are many different things you can explore here! Change the filter cutoffs, the smoothing kernel, whether you do global signal regression, and others.''',
 ]
 
 build('01_preprocessing.ipynb', pre, 'cbp001')    # large head motion: best for the motion-correction demo
